@@ -19,3 +19,14 @@ Once you are connected with the VPN, you can login to the virtual machine.
 4. The credentials of the mysql user are sent in the Whatsapp group.
 
 
+## Python
+
+To be able to run the files inside the folder "exercise2-files", you should download the data to your own pc and place it in the main foler of the project.
+
+### Install packages
+
+1. install virtualenv.
+2. Create and activate a virtual env: ```python -m venv .\venv\Scripts\activate```.
+3. Install the required packages: ```python -m pip install -r .\exercise2-files\requirements.txt```.
+4. You also have to create a ```.env``` file before you can run the ```example.py```. The content of this file is sent in the Whatssapp group.
+
