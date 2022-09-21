@@ -131,3 +131,4 @@ dmypy.json
 # The dataset
 dataset/
 __MACOSX/
+*.csv
