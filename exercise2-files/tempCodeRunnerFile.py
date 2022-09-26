@@ -1,0 +1,1 @@
+print(tabulate(rows, headers=self.cursor.column_names))
