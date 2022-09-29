@@ -1,6 +1,7 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
 import os
+import sys
 from datetime import datetime
 
 from tqdm import tqdm
@@ -61,8 +62,8 @@ class ExampleProgram:
                    lat DOUBLE NOT NULL,
                    lon DOUBLE NOT NULL,
                    altitude INT NOT NULL,
-                   date_days double,
-                   date_time datetime,
+                   date_days DOUBLE,
+                   date_time DATETIME,
                    FOREIGN KEY (activity_id) REFERENCES Activity(id))
                 """
         # This adds table_name to the %s variable and executes the query
@@ -114,7 +115,7 @@ class ExampleProgram:
             self.db_connection.commit()
 
             #TODO: Delete this break   
-            #break
+            # break
 
 
 
@@ -134,12 +135,12 @@ class ExampleProgram:
         if len(activities_sql) == 0:
             continue
 
-        data = {'lat': [], 'lon': [], 'altitude': [], 'date_days': [], 'date_time': [], 'activity_ids': []}
         for filename in os.listdir(os.path.join(self.base_path, folder, 'Trajectory')):
             with open(os.path.join(self.base_path, folder, 'Trajectory', filename)) as file:
                 lines = file.readlines()[6:]
 
                 if len(lines) <= 2500:
+                    data = {'lat': [], 'lon': [], 'altitude': [], 'date_days': [], 'date_time': [], 'activity_ids': []}
 
                     for line in lines:
                         line_data = (line.rstrip().split(','))
@@ -166,20 +167,30 @@ class ExampleProgram:
 
             if j >= len(activities_sql):
                 j = 0
-                data['activity_ids'].append(-1)
+                data['activity_ids'].append(-1) # Maybe this causes the error
 
 
         #Insert data from one user
-        for i in range(len(data['lat'])):
+        j = 0
+        while True:
+            if data['activity_ids'][j] >= 0:
+                query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][0]}, {data['lat'][0]}, {data['lon'][0]}, {data['altitude'][0]}, {data['date_days'][0]}, '{data['date_time'][0]}')"
+                break
+
+            if j < len(data['lat']):
+                j += 1
+            
+
+        for i in range(j + 1, len(data['lat'])):
 
             #TODO: Find the corresponding activity and get id of it
 
-            # Take note that the name is wrapped in '' --> '%s' because it is a string,
-            # while an int would be %s etc
-            query = "INSERT INTO %s (activity_id, lat, lon, altitude, date_days, date_time) VALUES (%s, %s, %s, %s, %s, '%s')"
-            #print(activity_id, data['lat'][i], data['lon'][i], data['altitude'][i], data['date_days'][i], data['date_time'][i])
-            self.cursor.execute(query % (table_name, data["activity_ids"][i], data['lat'][i], data['lon'][i], data['altitude'][i], data['date_days'][i], data['date_time'][i])) 
-            self.db_connection.commit()
+            if data['activity_ids'][i] >= 0:
+                
+                query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
+        
+        self.cursor.execute(query) 
+        self.db_connection.commit()
 
         #df = pd.DataFrame(data)
 
@@ -212,19 +223,20 @@ def main():
     try:
         
         # time.sleep(3000)
-        
+        print("Hello")
+
         # program.create_users(table_name="User")
         # program.create_activity(table_name="Activity")
         # program.create_trackPoint(table_name="TrackPoint")
-        #program.insert_userdata(table_name="User")
-        #program.insert_activitydata(table_name="Activity")
+        # program.insert_userdata(table_name="User")
+        # program.insert_activitydata(table_name="Activity")
         program.insert_trackPointdata(table_name="TrackPoint")
         _ = program.fetch_data(table_name="User")
         program.show_tables()
         # program.drop_table(table_name="User)
     except Exception as e:
         print("ERROR: Failed to use database:", e)
-        # program.drop_table(table_name="TrackPoint")
+        program.drop_table(table_name="TrackPoint")
         # program.drop_table(table_name="Activity")
         # program.drop_table(table_name="User")
         
@@ -238,6 +250,4 @@ if __name__ == '__main__':
     main()
 
 
-
-# FIXME: ERROR: Failed to use database: Could not process parameters: str(000), it must be of type list, tuple or dict
 #ERROR 1055 (42000): Expression #2 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'sec_assignment.Activity.start_date_time' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by
