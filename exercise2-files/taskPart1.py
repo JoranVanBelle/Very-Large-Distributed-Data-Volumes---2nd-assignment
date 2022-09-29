@@ -121,76 +121,78 @@ class ExampleProgram:
 
     def insert_trackPointdata(self, table_name):
 
-      print("----------------------------------")
-      print("Parsing and adding Trackpoints to the Database")       
-      print("----------------------------------")
-      for folder in tqdm(os.listdir(self.base_path)):
+        print("----------------------------------")
+        print("Parsing and adding Trackpoints to the Database")       
+        print("----------------------------------")
+        for folder in tqdm(os.listdir(self.base_path)):
 
-        #TODO: Get activities of that User
-        get_activities = "SELECT id, start_date_time, end_date_time FROM Activity where user_id = '%s' ORDER BY start_date_time, end_date_time"
-        self.cursor.execute(get_activities % (folder))
-        activities_sql = self.cursor.fetchall()
+            #TODO: Get activities of that User
+            get_activities = "SELECT id, start_date_time, end_date_time FROM Activity where user_id = '%s' ORDER BY start_date_time, end_date_time"
+            self.cursor.execute(get_activities % (folder))
+            activities_sql = self.cursor.fetchall()
 
-        #TODO: Check if that makes sense
-        if len(activities_sql) == 0:
-            continue
+            #TODO: Check if that makes sense
+            if len(activities_sql) == 0:
+                continue
 
-        for filename in os.listdir(os.path.join(self.base_path, folder, 'Trajectory')):
-            with open(os.path.join(self.base_path, folder, 'Trajectory', filename)) as file:
-                lines = file.readlines()[6:]
-
-                if len(lines) <= 2500:
-                    data = {'lat': [], 'lon': [], 'altitude': [], 'date_days': [], 'date_time': [], 'activity_ids': []}
-
-                    for line in lines:
-                        line_data = (line.rstrip().split(','))
-                        data['lat'].append(line_data[0])
-                        data['lon'].append(line_data[1])
-                        data['altitude'].append(line_data[3])
-                        data['date_days'].append(line_data[4])
-                        data['date_time'].append(line_data[5] + ' ' + line_data[6])
-
-        
-        
-        ## Loop through every trackpoint
-            ## Try to find the correct activity id
-
-        j = 0
-        for i in range(len(data['lat'])):
-
-            while (j < len(activities_sql) and activities_sql[j][1] < datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S")): 
-                if(activities_sql[j][2] >= datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S")):
-                    data['activity_ids'].append(activities_sql[j][0])
-                    break
-                else:
-                    j += 1
-
-            if j >= len(activities_sql):
-                j = 0
-                data['activity_ids'].append(-1) # Maybe this causes the error
-
-
-        #Insert data from one user
-        j = 0
-        while True:
-            if data['activity_ids'][j] >= 0:
-                query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][0]}, {data['lat'][0]}, {data['lon'][0]}, {data['altitude'][0]}, {data['date_days'][0]}, '{data['date_time'][0]}')"
-                break
-
-            if j < len(data['lat']):
-                j += 1
+                    
+            data = {'lat': [], 'lon': [], 'altitude': [], 'date_days': [], 'date_time': [], 'activity_ids': []}
             
+            for filename in os.listdir(os.path.join(self.base_path, folder, 'Trajectory')):
+                with open(os.path.join(self.base_path, folder, 'Trajectory', filename)) as file:
+                    lines = file.readlines()[6:]
 
-        for i in range(j + 1, len(data['lat'])):
+                    if len(lines) <= 2500:
 
-            #TODO: Find the corresponding activity and get id of it
+                        for line in lines:
+                            line_data = (line.rstrip().split(','))
+                            data['lat'].append(line_data[0])
+                            data['lon'].append(line_data[1])
+                            data['altitude'].append(line_data[3])
+                            data['date_days'].append(line_data[4])
+                            data['date_time'].append(line_data[5] + ' ' + line_data[6])
 
-            if data['activity_ids'][i] >= 0:
-                
-                query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
         
-        self.cursor.execute(query) 
-        self.db_connection.commit()
+        
+            ## Loop through every trackpoint
+                ## Try to find the correct activity id
+
+            j = 0
+            for i in tqdm(range(len(data['lat']))):
+
+                while (j < len(activities_sql) and activities_sql[j][1] < datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S")): 
+                    if(activities_sql[j][2] >= datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S")):
+                        data['activity_ids'].append(activities_sql[j][0])
+                        break
+                    else:
+                        j += 1
+
+                if j >= len(activities_sql) or activities_sql[j][1] >= datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S"):
+                    j = 0
+                    data['activity_ids'].append(-1) # Maybe this causes the error
+
+
+            #Insert data from one user
+            j = 0
+            while True:
+                if data['activity_ids'][j] >= 0:
+                    query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][j]}, {data['lat'][j]}, {data['lon'][j]}, {data['altitude'][j]}, {data['date_days'][j]}, '{data['date_time'][j]}')"
+                    break
+
+                if j < len(data['lat']):
+                    j += 1
+                
+
+            for i in range(j + 1, len(data['lat'])):
+
+                #TODO: Find the corresponding activity and get id of it
+
+                if data['activity_ids'][i] >= 0:
+                    
+                    query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
+            
+            self.cursor.execute(query) 
+            self.db_connection.commit()
 
         #df = pd.DataFrame(data)
 
@@ -227,7 +229,7 @@ def main():
 
         # program.create_users(table_name="User")
         # program.create_activity(table_name="Activity")
-        # program.create_trackPoint(table_name="TrackPoint")
+        program.create_trackPoint(table_name="TrackPoint")
         # program.insert_userdata(table_name="User")
         # program.insert_activitydata(table_name="Activity")
         program.insert_trackPointdata(table_name="TrackPoint")
