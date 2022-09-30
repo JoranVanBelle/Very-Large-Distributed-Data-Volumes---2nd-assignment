@@ -173,26 +173,30 @@ class ExampleProgram:
 
 
             #Insert data from one user
-            j = 0
-            while True:
-                if data['activity_ids'][j] >= 0:
-                    query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][j]}, {data['lat'][j]}, {data['lon'][j]}, {data['altitude'][j]}, {data['date_days'][j]}, '{data['date_time'][j]}')"
-                    break
+            if len(data['activity_ids']) <= 2500:
+                j = 0
+                while True:
+                    if data['activity_ids'][j] >= 0:
+                        query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][j]}, {data['lat'][j]}, {data['lon'][j]}, {data['altitude'][j]}, {data['date_days'][j]}, '{data['date_time'][j]}')"
+                        break
 
-                if j < len(data['lat']):
-                    j += 1
-                
-
-            for i in range(j + 1, len(data['lat'])):
-
-                #TODO: Find the corresponding activity and get id of it
-
-                if data['activity_ids'][i] >= 0:
+                    if j < len(data['lat']):
+                        j += 1
                     
-                    query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
-            
-            self.cursor.execute(query) 
-            self.db_connection.commit()
+                    if len(data["activity_ids"]) == j:
+                        break
+                    
+
+                for i in range(j + 1, len(data['lat'])):
+
+                    #TODO: Find the corresponding activity and get id of it
+
+                    if data['activity_ids'][i] >= 0:
+                        
+                        query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
+                
+                self.cursor.execute(query) 
+                self.db_connection.commit()
 
         #df = pd.DataFrame(data)
 
@@ -225,13 +229,11 @@ def main():
     try:
         
         # time.sleep(3000)
-        print("Hello")
-
-        # program.create_users(table_name="User")
-        # program.create_activity(table_name="Activity")
+        program.create_users(table_name="User")
+        program.create_activity(table_name="Activity")
         program.create_trackPoint(table_name="TrackPoint")
-        # program.insert_userdata(table_name="User")
-        # program.insert_activitydata(table_name="Activity")
+        program.insert_userdata(table_name="User")
+        program.insert_activitydata(table_name="Activity")
         program.insert_trackPointdata(table_name="TrackPoint")
         _ = program.fetch_data(table_name="User")
         program.show_tables()
@@ -239,8 +241,8 @@ def main():
     except Exception as e:
         print("ERROR: Failed to use database:", e)
         program.drop_table(table_name="TrackPoint")
-        # program.drop_table(table_name="Activity")
-        # program.drop_table(table_name="User")
+        program.drop_table(table_name="Activity")
+        program.drop_table(table_name="User")
         
         # TODO
     finally:
