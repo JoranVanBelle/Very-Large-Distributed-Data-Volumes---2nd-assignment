@@ -6,42 +6,36 @@ from datetime import datetime
 
 from tqdm import tqdm
 
-class ExampleProgram:
+class Task1Program:
 
     def __init__(self):
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection
         self.cursor = self.connection.cursor
         self.base_path = os.path.join("dataset", "Data")
-
-    # def create_table(self, table_name):
-    #     query = """CREATE TABLE IF NOT EXISTS %s (
-    #                id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
-    #                name VARCHAR(30))
-    #             """
-    #     # This adds table_name to the %s variable and executes the query
-    #     self.cursor.execute(query % table_name)
-    #     self.db_connection.commit()
-
-    # def insert_data(self, table_name):
-    #     names = ['Bobby', 'Mc', 'McSmack', 'Board']
-    #     for name in names:
-    #         # Take note that the name is wrapped in '' --> '%s' because it is a string,
-    #         # while an int would be %s etc
-    #         query = "INSERT INTO %s (name) VALUES ('%s')"
-    #         self.cursor.execute(query % (table_name, name))
-    #     self.db_connection.commit()
         
-    def create_users(self, table_name):
-      query = """CREATE TABLE IF NOT EXISTS %s (
+    def create_users(self, table_name: str):
+        """Creates the user table in the database.
+
+        Args:
+            table_name (string): The name we want to use for the table in the database.
+        """        
+
+        query = """CREATE TABLE IF NOT EXISTS %s (
                   id VARCHAR(30) NOT NULL PRIMARY KEY,
                   has_labels boolean)
               """
-      # This adds table_name to the %s variable and executes the query
-      self.cursor.execute(query % (table_name))
-      self.db_connection.commit()
+
+        self.cursor.execute(query % (table_name))
+        self.db_connection.commit()
     
-    def create_activity(self, table_name):
+    def create_activity(self, table_name: str):
+        """Creates the activity table in the database.
+
+        Args:
+            table_name (string): The name we want to use for the table in the database.
+        """        
+
         query = """CREATE TABLE IF NOT EXISTS %s (
                    id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
                    user_id VARCHAR(30) NOT NULL,
@@ -51,11 +45,17 @@ class ExampleProgram:
                    FOREIGN KEY (user_id) REFERENCES User(id))
                 """
                 
-        # This adds table_name to the %s variable and executes the query
+        
         self.cursor.execute(query % table_name)
         self.db_connection.commit()
 
-    def create_trackPoint(self, table_name):
+    def create_trackPoint(self, table_name: str):
+        """Creates the trackpoints table in the database.
+
+        Args:
+            table_name (string): The name we want to use for the table in the database.
+        """     
+
         query = """CREATE TABLE IF NOT EXISTS %s (
                    id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
                    activity_id INT NOT NULL,
@@ -66,24 +66,42 @@ class ExampleProgram:
                    date_time DATETIME,
                    FOREIGN KEY (activity_id) REFERENCES Activity(id))
                 """
-        # This adds table_name to the %s variable and executes the query
+        
         self.cursor.execute(query % table_name)
         self.db_connection.commit()
 
-    def insert_userdata(self, table_name):
+    def insert_userdata(self, table_name: str):
+        """ This function inserts the user data into the user table of our database.
+            The data for the "has_labels" column is extracted from the labeld_ids.txt file.
+            The user_ids themselves are just the names of the folders in the Data folder of the dataset.
 
-      with open(os.path.join("dataset", 'labeled_ids.txt')) as file:
-        users_with_labels = file.readlines()
-        users_with_labels = [int(s.rstrip()) for s in users_with_labels]
+        Args:
+            table_name (string): The name of the table we want to insert the data into.
+        """        
 
-      for id in os.listdir(self.base_path):
-          # Take note that the name is wrapped in '' --> '%s' because it is a string,
-          # while an int would be %s etc
-          query = "INSERT INTO %s (id, has_labels) VALUES ('%s', %s)"
-          self.cursor.execute(query % (table_name, id, str(int(id) in users_with_labels).upper())) 
-      self.db_connection.commit()
+        with open(os.path.join("dataset", 'labeled_ids.txt')) as file:
+            users_with_labels = file.readlines()
+            users_with_labels = [int(s.rstrip()) for s in users_with_labels]
 
-    def insert_activitydata(self, table_name=""):
+        for id in os.listdir(self.base_path):
+            # Take note that the name is wrapped in '' --> '%s' because it is a string,
+            # while an int would be %s etc
+            query = "INSERT INTO %s (id, has_labels) VALUES ('%s', %s)"
+            self.cursor.execute(query % (table_name, id, str(int(id) in users_with_labels).upper())) 
+        self.db_connection.commit()
+
+    def insert_activitydata(self, table_name: str):
+        """ This function inserts the activities into the activity table of our database.
+            
+            Since only the folders of the users with "has_labels = 1" contain activity data, we only need to process these users.
+            After parsing all the activities, we add the activites to our activity table in the database.
+
+
+        Args:
+            table_name (string): The name of the table we want to insert the data into.
+        """   
+
+
         
         data = {'user_id' : [], 'transportation_mode': [], 'start_date_time': [], 'end_date_time': []}
 
@@ -114,28 +132,84 @@ class ExampleProgram:
             self.cursor.execute(query % (table_name, data['user_id'][i], data['transportation_mode'][i], data['start_date_time'][i], data['end_date_time'][i])) 
             self.db_connection.commit()
 
-            #TODO: Delete this break   
-            # break
+
+    def find_matching_activities(self, activities, data):
+        """This is a helper function which allows us to efficiently find the matching activities for a given trackpoint.
+
+        Args:
+            activities (list): A list with all the rows of the activities for a given user.
+            data (map): A map with all the necassary information about the trackpoints. This function then adds the activities_ids to the data['activity_ids'] array.
+        """        
+
+        print("----------------------------------")
+        print(f"Finding matching activities for {len(data['lat'])} Trackpoints and {len(activities)} activities")       
+        print("----------------------------------")
+        
+        #Binary search for a corresponding activity:
+
+        for i in tqdm(range(len(data['lat']))):
+            
+            lower_bound = 0
+            upper_bound = len(activities) - 1
+
+            success = False
+
+            while lower_bound < upper_bound:
+
+                j = int(lower_bound + (upper_bound - lower_bound)/2)
+
+                #Starttime of activity after the timestamp 
+                if activities[j][1] > datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S"):
+                    upper_bound = j - 1
+
+                #Endtime of activity before the timestamp
+                elif activities[j][2] < datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S"):
+                    lower_bound = j + 1
+
+                #Found a corresponding activity
+                else:
+                    data['activity_ids'].append(activities[j][0])
+                    success = True
+                    break
+
+            if not success:
+                data['activity_ids'].append(-1)
 
 
 
     def insert_trackPointdata(self, table_name):
+        """ This function inserts the trackpoints into the trackpoint table of our database.
+            For this the function loops through all the users, and then performs the following steps:
+                1. Get all the activities corresponding to this user from the activities table.
+                   If the user has no activities, we continue with the next user.
+                2. We parse the trackpoints from the .plt files for this user. 
+                   We skip those .plt files that contain more than 2,500 trackpoints.
+                3. We use the find_matching_activities function find the corresponding activity for each trackpoint.
+                   If we don't find a activity at the timestamp of the trackpoint, we don't add the trackpoint to the database.
+                4. We create a batch query for all the trackpoints we want to add for this one user and then commit the query to the database.
+
+
+
+        Args:
+            table_name (_type_): _description_
+        """        
 
         print("----------------------------------")
         print("Parsing and adding Trackpoints to the Database")       
         print("----------------------------------")
         for folder in tqdm(os.listdir(self.base_path)):
 
-            #TODO: Get activities of that User
+            #Step 1:
             get_activities = "SELECT id, start_date_time, end_date_time FROM Activity where user_id = '%s' ORDER BY start_date_time, end_date_time"
             self.cursor.execute(get_activities % (folder))
             activities_sql = self.cursor.fetchall()
 
-            #TODO: Check if that makes sense
+
             if len(activities_sql) == 0:
                 continue
 
-                    
+            #Step 2:
+
             data = {'lat': [], 'lon': [], 'altitude': [], 'date_days': [], 'date_time': [], 'activity_ids': []}
             
             for filename in os.listdir(os.path.join(self.base_path, folder, 'Trajectory')):
@@ -151,54 +225,35 @@ class ExampleProgram:
                             data['altitude'].append(line_data[3])
                             data['date_days'].append(line_data[4])
                             data['date_time'].append(line_data[5] + ' ' + line_data[6])
+   
+            #Step 3:
 
-        
-        
-            ## Loop through every trackpoint
-                ## Try to find the correct activity id
+            self.find_matching_activities(activities_sql, data)
+    
 
             j = 0
-            for i in tqdm(range(len(data['lat']))):
+            while True:
+                if data['activity_ids'][j] >= 0:
+                    query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][j]}, {data['lat'][j]}, {data['lon'][j]}, {data['altitude'][j]}, {data['date_days'][j]}, '{data['date_time'][j]}')"
+                    break
 
-                while (j < len(activities_sql) and activities_sql[j][1] < datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S")): 
-                    if(activities_sql[j][2] >= datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S")):
-                        data['activity_ids'].append(activities_sql[j][0])
-                        break
-                    else:
-                        j += 1
-
-                if j >= len(activities_sql) or activities_sql[j][1] >= datetime.strptime(data['date_time'][i], "%Y-%m-%d %H:%M:%S"):
-                    j = 0
-                    data['activity_ids'].append(-1) # Maybe this causes the error
-
-
-            #Insert data from one user
-            if len(data['activity_ids']) <= 2500:
-                j = 0
-                while True:
-                    if data['activity_ids'][j] >= 0:
-                        query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][j]}, {data['lat'][j]}, {data['lon'][j]}, {data['altitude'][j]}, {data['date_days'][j]}, '{data['date_time'][j]}')"
-                        break
-
-                    if j < len(data['lat']):
-                        j += 1
+                if j < len(data['lat']):
+                    j += 1
                     
-                    if len(data["activity_ids"]) == j:
-                        break
+                if len(data["activity_ids"]) == j:
+                    break
                     
+            #Step 4:
 
-                for i in range(j + 1, len(data['lat'])):
+            for i in range(j + 1, len(data['lat'])):
 
-                    #TODO: Find the corresponding activity and get id of it
-
-                    if data['activity_ids'][i] >= 0:
+                if data['activity_ids'][i] >= 0:
                         
-                        query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
+                    query += f", ({data['activity_ids'][i]}, {data['lat'][i]}, {data['lon'][i]}, {data['altitude'][i]}, {data['date_days'][i]}, '{data['date_time'][i]}')"
                 
-                self.cursor.execute(query) 
-                self.db_connection.commit()
+            self.cursor.execute(query) 
+            self.db_connection.commit()
 
-        #df = pd.DataFrame(data)
 
     def fetch_data(self, table_name):
         query = "SELECT * FROM %s"
@@ -224,11 +279,10 @@ class ExampleProgram:
 
 def main():
     program = None
-    program = ExampleProgram()
+    program = Task1Program()
 
     try:
         
-        # time.sleep(3000)
         program.create_users(table_name="User")
         program.create_activity(table_name="Activity")
         program.create_trackPoint(table_name="TrackPoint")
@@ -237,14 +291,15 @@ def main():
         program.insert_trackPointdata(table_name="TrackPoint")
         _ = program.fetch_data(table_name="User")
         program.show_tables()
-        # program.drop_table(table_name="User)
+        
+
     except Exception as e:
         print("ERROR: Failed to use database:", e)
-        program.drop_table(table_name="TrackPoint")
-        program.drop_table(table_name="Activity")
-        program.drop_table(table_name="User")
+        #program.drop_table(table_name="TrackPoint")
+        #program.drop_table(table_name="Activity")
+        #program.drop_table(table_name="User")
         
-        # TODO
+        
     finally:
         if program:
             program.connection.close_connection()
@@ -253,5 +308,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-
-#ERROR 1055 (42000): Expression #2 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'sec_assignment.Activity.start_date_time' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by
