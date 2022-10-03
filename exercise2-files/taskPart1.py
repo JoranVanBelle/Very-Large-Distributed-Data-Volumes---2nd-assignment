@@ -108,6 +108,7 @@ class Task1Program:
         with open(os.path.join("dataset", 'labeled_ids.txt')) as file:
             users_with_labels = file.readlines()
             users_with_labels = [s.rstrip() for s in users_with_labels]
+            users_without_labels = list(filter(lambda user: user not in users_with_labels, os.listdir(os.path.join("dataset", "Data"))))
         
         print("----------------------------------")
         print("Parsing ActivityData")       
@@ -123,6 +124,24 @@ class Task1Program:
                     data["transportation_mode"].append(line_data[2])
                     data["start_date_time"].append(line_data[0])
                     data["end_date_time"].append(line_data[1])
+
+        for user in tqdm(users_without_labels):
+            folder_path = os.path.join("dataset", "Data", user, "Trajectory")
+
+            for activity_file_name in os.listdir(folder_path):
+                with open(os.path.join(folder_path, activity_file_name)) as activity_file:
+
+                    lines = activity_file.readlines()
+                    start_date_time = lines[6].rstrip().split(',')[-2] + ' ' + lines[6].rstrip().split(',')[-1]
+                    end_date_time = lines[-1].rstrip().split(',')[-2] + ' ' + lines[-1].rstrip().split(',')[-1]
+
+                    data["user_id"].append(user)
+                    data["transportation_mode"].append("NULL")
+                    data["start_date_time"].append(start_date_time)
+                    data["end_date_time"].append(end_date_time)
+
+
+
 
         print("----------------------------------")
         print("Adding ActivityData to the Database")       
@@ -230,9 +249,13 @@ class Task1Program:
 
             self.find_matching_activities(activities_sql, data)
     
+            #Step 4:
+
+            
+            query = ""
 
             j = 0
-            while True:
+            while True and len(data['lat']) > 0:
                 if data['activity_ids'][j] >= 0:
                     query = f"INSERT INTO {table_name} (activity_id, lat, lon, altitude, date_days, date_time) VALUES ({data['activity_ids'][j]}, {data['lat'][j]}, {data['lon'][j]}, {data['altitude'][j]}, {data['date_days'][j]}, '{data['date_time'][j]}')"
                     break
@@ -243,7 +266,6 @@ class Task1Program:
                 if len(data["activity_ids"]) == j:
                     break
                     
-            #Step 4:
 
             for i in range(j + 1, len(data['lat'])):
 
